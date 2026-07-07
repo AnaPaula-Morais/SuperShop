@@ -32,14 +32,16 @@ namespace SuperShop.Migrations
                     b.Property<bool>("IsAvailable")
                         .HasColumnType("bit");
 
-                    b.Property<DateTime>("LastPurchase")
+                    b.Property<DateTime?>("LastPurchase")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("LastSale")
+                    b.Property<DateTime?>("LastSale")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Name")
-                        .HasColumnType("nvarchar(max)");
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,2)");

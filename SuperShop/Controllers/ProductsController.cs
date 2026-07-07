@@ -1,9 +1,9 @@
-﻿using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SuperShop.Data;
 using SuperShop.Data.Entities;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace SuperShop.Controllers
 {
@@ -17,8 +17,10 @@ namespace SuperShop.Controllers
         }
 
         // GET: Products
+        //Vai ao data conntext - propriedade dos produtos e retorna a lista de produtos para a view
         public async Task<IActionResult> Index()
         {
+            //usa-se uma tolistasync para retornar a lista de produtos de forma assíncrona
             return View(await _context.Products.ToListAsync());
         }
 
