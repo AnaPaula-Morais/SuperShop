@@ -1,6 +1,6 @@
 ﻿namespace SuperShop.Data.Entities
 {
-    public interface IEntinty
+    public interface IEntity
     {
         int Id { get; set; }
     }

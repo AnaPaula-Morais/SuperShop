@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace SuperShop.Data.Entities
 {
-    public class Product: IEntinty
+    public class Product: IEntity
     {
         public int Id { get; set; }
 
@@ -31,17 +31,9 @@ namespace SuperShop.Data.Entities
 
         public User User { get; set; }
 
-        public string ImageFullPath
-        {
-            get
-            {
-                if (string.IsNullOrEmpty(ImageUrl))
-                {
-                    return null;
-                }
+        public string ImageFullPath => string.IsNullOrEmpty(ImageUrl)
+        ? "/images/noImage.png"
+        : $"/{ImageUrl.TrimStart('/')}";
 
-                return $"https://localhost:44331{ImageUrl.Substring(1)}";
-            }
-        }
     }
 }

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace SuperShop.Data
 {
-    public class GenericRepository<T> : IGenericRepository<T> where T : class, IEntinty
+    public class GenericRepository<T> : IGenericRepository<T> where T : class, IEntity
     {
         private readonly DataContext _context;
 
