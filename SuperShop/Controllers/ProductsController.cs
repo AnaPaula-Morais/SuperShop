@@ -1,16 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SuperShop.Data;
-using SuperShop.Data.Entities;
 using SuperShop.Helpers;
 using SuperShop.Models;
-using System;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace SuperShop.Controllers
 {
+    
     public class ProductsController : Controller
     {
         private readonly IProductRepository _productRepository;
@@ -55,6 +54,7 @@ namespace SuperShop.Controllers
         }
 
         // GET: Products/Create
+        [Authorize]
         public IActionResult Create()
         {
             return View();
@@ -71,10 +71,10 @@ namespace SuperShop.Controllers
             {
                 var path = string.Empty;
 
-                if(model.ImageFile != null && model.ImageFile.Length > 0)
+                if (model.ImageFile != null && model.ImageFile.Length > 0)
                 {
 
-                    path = await _imageHelper.UploadImageAsync(model.ImageFile,"products");
+                    path = await _imageHelper.UploadImageAsync(model.ImageFile, "products");
                 }
 
                 var product = _converterHelper.ToProduct(model, path, true);
@@ -104,6 +104,7 @@ namespace SuperShop.Controllers
         //}
 
         // GET: Products/Edit/5
+        [Authorize]
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null)
@@ -152,9 +153,9 @@ namespace SuperShop.Controllers
                 {
                     var path = model.ImageUrl;
 
-                    if(model.ImageFile != null && model.ImageFile.Length > 0)
+                    if (model.ImageFile != null && model.ImageFile.Length > 0)
                     {
-                        
+
                         path = await _imageHelper.UploadImageAsync(model.ImageFile, "products");
                     }
 
@@ -162,7 +163,7 @@ namespace SuperShop.Controllers
                     //TODO: Modificar para o user que tiver logado
                     product.User = await _userHelper.GetUserByEmailAsync("ap.almeidapm@gmail.com");
                     await _productRepository.UpdateAsync(product);
-                    
+
                 }
                 catch (DbUpdateConcurrencyException)
                 {
