@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using NuGet.Protocol.Core.Types;
 using SuperShop.Data.Entities;
 using SuperShop.Helpers;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -14,6 +16,20 @@ namespace SuperShop.Data
         {
             _context = context;
             _userHelper = userHelper;
+        }
+
+        public async Task<IQueryable<OrderDetailTemp>> GetDetailsTempsAsync(string userName)
+        {
+            var user = await _userHelper.GetUserByEmailAsync(userName);
+            if (user == null)
+            {
+                return null;
+            }
+
+            return _context.OrderDetailTemps
+                .Include(p => p.Product)
+                .Where(o => o.User == user)
+                .OrderBy(o => o.Product.Name);
         }
 
         public async Task<IQueryable<Order>> GetOrderAsync(string userName)
