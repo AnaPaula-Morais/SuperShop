@@ -1,15 +1,14 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using NuGet.Protocol.Core.Types;
 using SuperShop.Data.Entities;
 using SuperShop.Helpers;
 using SuperShop.Models;
-using System.Diagnostics;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace SuperShop.Data
 {
-    public class OrderRepository: GenericRepository<Order>, IOrderRepository
+    public class OrderRepository : GenericRepository<Order>, IOrderRepository
     {
         private readonly DataContext _context;
         private readonly IUserHelper _userHelper;
@@ -25,7 +24,7 @@ namespace SuperShop.Data
             if (user == null)
             {
                 return;
-            }   
+            }
             var product = await _context.Products.FindAsync(model.ProductId);
             if (product == null)
             {
@@ -55,10 +54,49 @@ namespace SuperShop.Data
             await _context.SaveChangesAsync();
         }
 
+        public async Task<bool> ConfirmOrderAsync(string userName)
+        {
+            var user = await _userHelper.GetUserByEmailAsync(userName);
+            if (user == null)
+            {
+                return false;
+            }
+
+            var orderTemps = await _context.OrderDetailTemps
+                .Include(o => o.Product)
+                .Where(o => o.User == user)
+                .ToListAsync();
+
+            if (orderTemps == null || orderTemps.Count == 0)
+            {
+                return false;
+            }
+
+            var details = orderTemps.Select(o => new OrderDetail
+            {
+                Price = o.Price,
+                Product = o.Product,
+                Quantity = o.Quantity,
+            }).ToList();
+
+            var order = new Order
+            {
+                OrderDate = DateTime.UtcNow,
+                User = user,
+                items = details
+            };
+
+            await CreateAsync(order);
+
+            _context.OrderDetailTemps.RemoveRange(orderTemps);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         public async Task DeleteDetailTempAsync(int id)
         {
             var orderDetailTemp = await _context.OrderDetailTemps.FindAsync(id);
-            if(orderDetailTemp == null)
+            if (orderDetailTemp == null)
             {
                 return;
             }
@@ -84,14 +122,15 @@ namespace SuperShop.Data
         public async Task<IQueryable<Order>> GetOrderAsync(string userName)
         {
             var user = await _userHelper.GetUserByEmailAsync(userName);
-            if(user == null)
+            if (user == null)
             {
                 return null;
             }
 
-            if(await _userHelper.IsUserInRoleAsync(user, "Admin"))
+            if (await _userHelper.IsUserInRoleAsync(user, "Admin"))
             {
                 return _context.Orders
+                    .Include(o => o.User)
                     .Include(o => o.items)
                     .ThenInclude(p => p.Product)
                     .OrderByDescending(o => o.OrderDate);
@@ -111,7 +150,7 @@ namespace SuperShop.Data
                 return;
             }
             orderDetailTemp.Quantity += quantity;
-            if(orderDetailTemp.Quantity > 0)
+            if (orderDetailTemp.Quantity > 0)
             {
                 _context.OrderDetailTemps.Update(orderDetailTemp);
                 await _context.SaveChangesAsync();

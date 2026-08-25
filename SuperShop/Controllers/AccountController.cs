@@ -66,8 +66,8 @@ namespace SuperShop.Controllers
                 {
                     user = new Data.Entities.User
                     {
-                        FirstName = model.Username,
-                        LastName = model.Username,
+                        FirstName = model.FirstName,
+                        LastName = model.LastName,
                         Email = model.Username,
                         UserName = model.Username,
                     };
