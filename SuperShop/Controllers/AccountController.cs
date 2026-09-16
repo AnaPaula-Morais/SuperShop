@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.VisualBasic;
+using SuperShop.Data;
 using SuperShop.Helpers;
 using SuperShop.Models;
 using System.Linq;
@@ -11,9 +12,11 @@ namespace SuperShop.Controllers
     public class AccountController : Controller
     {
         private readonly IUserHelper _userHelper;
-        public AccountController(IUserHelper userHelper)
+        private readonly ICountryRepository _countryRepository;
+        public AccountController(IUserHelper userHelper, ICountryRepository countryRepository)
         {
             _userHelper = userHelper;
+            _countryRepository = countryRepository;
         }
 
         public IActionResult Login()
@@ -53,7 +56,13 @@ namespace SuperShop.Controllers
 
         public IActionResult Register()
         {
-            return View();
+            var model = new RegisterNewUserViewModel
+            {
+                Countries = _countryRepository.GetComboCountries(),
+                Cities = _countryRepository.GetComboCities(0),
+            };
+
+            return View(model);
         }
 
         [HttpPost]
@@ -64,12 +73,17 @@ namespace SuperShop.Controllers
                 var user = await _userHelper.GetUserByEmailAsync(model.Username);
                 if (user == null)
                 {
+                    var city = await _countryRepository.GetCityAsync(model.CityId);
                     user = new Data.Entities.User
                     {
                         FirstName = model.FirstName,
                         LastName = model.LastName,
                         Email = model.Username,
                         UserName = model.Username,
+                        Address = model.Address,
+                        PhoneNumber = model.PhoneNumber,
+                        CityId = model.CityId,
+                        City = city,
                     };
 
                     var result = await _userHelper.AddUserAsync(user, model.Password);
@@ -108,7 +122,24 @@ namespace SuperShop.Controllers
             {
                 model.FirstName = user.FirstName;
                 model.LastName = user.LastName;
+                model.Address = user.Address;
+                model.PhoneNumber = user.PhoneNumber;
+
+                var city = await _countryRepository.GetCityAsync(user.CityId);
+                if(city != null)
+                {
+                    var country = await _countryRepository.GetCountryAsync(city);
+                    if(country != null)
+                    {
+                        model.CountryId = country.Id;
+                        model.Cities = _countryRepository.GetComboCities(country.Id);
+                        model.Countries = _countryRepository.GetComboCountries();
+                        model.CityId = user.CityId;
+                    }
+                }
             }
+            model.Cities = _countryRepository.GetComboCities(model.CountryId);
+            model.Countries = _countryRepository.GetComboCountries();
 
             return View(model);
         }
@@ -121,8 +152,15 @@ namespace SuperShop.Controllers
                 var user = await _userHelper.GetUserByEmailAsync(this.User.Identity.Name);
                 if (user != null)
                 {
+                    var city = await _countryRepository.GetCityAsync(model.CityId);
+
                     user.FirstName = model.FirstName;
                     user.LastName = model.LastName;
+                    user.Address = model.Address;
+                    user.PhoneNumber = model.PhoneNumber;
+                    user.CityId = model.CityId;
+                    user.City = city;
+
                     var response = await _userHelper.UpdateUserAsync(user);
                     if (response.Succeeded)
                     {
@@ -173,6 +211,14 @@ namespace SuperShop.Controllers
         public IActionResult NotAuthorized()
         {
             return View();
+        }
+        [HttpPost]
+        [Route("Account/GetCitiesAsync")]
+        
+        public async Task<JsonResult> GetCitiesAsync(int countryId)
+        {
+            var country = await _countryRepository.GetCountryWithCitiesAsync(countryId);
+            return Json(country.Cities.OrderBy(c => c.CityName));
         }
     }
 }
