@@ -8,26 +8,33 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.VisualBasic;
 using SuperShop.Data;
+using SuperShop.Data.Entities;
 using SuperShop.Helpers;
 using SuperShop.Models;
+
 
 namespace SuperShop.Controllers
 {
     public class AccountController : Controller
     {
         private readonly IUserHelper _userHelper;
-        private readonly ICountryRepository _countryRepository;
+        private readonly IMailHelper _mailHelper;
         private readonly IConfiguration _configuration;
-        public AccountController(IUserHelper userHelper, 
-            ICountryRepository countryRepository,
-            IConfiguration configuration)
+        private readonly ICountryRepository _countryRepository;
+
+        public AccountController(
+            IUserHelper userHelper,
+            IMailHelper mailHelper,
+            IConfiguration configuration,
+            ICountryRepository countryRepository)
         {
             _userHelper = userHelper;
-            _countryRepository = countryRepository;
+            _mailHelper = mailHelper;
             _configuration = configuration;
+            _countryRepository = countryRepository;
         }
+
 
         public IActionResult Login()
         {
@@ -35,13 +42,15 @@ namespace SuperShop.Controllers
             {
                 return RedirectToAction("Index", "Home");
             }
+
             return View();
         }
+
 
         [HttpPost]
         public async Task<IActionResult> Login(LoginViewModel model)
         {
-            if(ModelState.IsValid)
+            if (ModelState.IsValid)
             {
                 var result = await _userHelper.LoginAsync(model);
                 if (result.Succeeded)
@@ -55,14 +64,17 @@ namespace SuperShop.Controllers
                 }
             }
 
-            this.ModelState.AddModelError(string.Empty, "Failed to login");
+            this.ModelState.AddModelError(string.Empty, "Failed to login!");
             return View(model);
         }
+
+
         public async Task<IActionResult> Logout()
         {
             await _userHelper.LogoutAsync();
             return RedirectToAction("Index", "Home");
         }
+
 
         public IActionResult Register()
         {
@@ -75,6 +87,7 @@ namespace SuperShop.Controllers
             return View(model);
         }
 
+
         [HttpPost]
         public async Task<IActionResult> Register(RegisterNewUserViewModel model)
         {
@@ -84,7 +97,8 @@ namespace SuperShop.Controllers
                 if (user == null)
                 {
                     var city = await _countryRepository.GetCityAsync(model.CityId);
-                    user = new Data.Entities.User
+
+                    user = new User
                     {
                         FirstName = model.FirstName,
                         LastName = model.LastName,
@@ -93,42 +107,47 @@ namespace SuperShop.Controllers
                         Address = model.Address,
                         PhoneNumber = model.PhoneNumber,
                         CityId = model.CityId,
-                        City = city,
+                        City = city
                     };
 
                     var result = await _userHelper.AddUserAsync(user, model.Password);
-                    if(result != IdentityResult.Success)
+                    if (result != IdentityResult.Success)
                     {
-                        ModelState.AddModelError(string.Empty, "The user couldn't be created");
+                        ModelState.AddModelError(string.Empty, "The user couldn't be created.");
                         return View(model);
                     }
 
-                    var loginViewModel = new LoginViewModel
+                    string myToken = await _userHelper.GenerateEmailConfirmationTokenAsync(user);
+                    string tokenLink = Url.Action("ConfirmEmail", "Account", new
                     {
-                        Password = model.Password,
-                        RememberMe = false,
-                        Username = model.Username,
-                    };
+                        userid = user.Id,
+                        token = myToken
+                    }, protocol: HttpContext.Request.Scheme);
 
-                    var result2 = await _userHelper.LoginAsync(loginViewModel);
-                    if (result2.Succeeded)
+                    Response response = _mailHelper.SendEmail(model.Username, "Email confirmation", $"<h1>Email Confirmation</h1>" +
+                        $"To allow the user, " +
+                        $"plase click in this link:</br></br><a href = \"{tokenLink}\">Confirm Email</a>");
+
+
+                    if (response.IsSuccess)
                     {
-                        return RedirectToAction("Index", "Home");
+                        ViewBag.Message = "The instructions to allow you user has been sent to email";
+                        return View(model);
                     }
 
-                    ModelState.AddModelError(string.Empty, "The user couldn't be logged.");
-                    
+                    ModelState.AddModelError(string.Empty, response.Message ?? "Error sending email.");
+
                 }
             }
+
             return View(model);
         }
 
-       
         public async Task<IActionResult> ChangeUser()
         {
             var user = await _userHelper.GetUserByEmailAsync(this.User.Identity.Name);
             var model = new ChangeUserViewModel();
-            if(user != null)
+            if (user != null)
             {
                 model.FirstName = user.FirstName;
                 model.LastName = user.LastName;
@@ -136,10 +155,10 @@ namespace SuperShop.Controllers
                 model.PhoneNumber = user.PhoneNumber;
 
                 var city = await _countryRepository.GetCityAsync(user.CityId);
-                if(city != null)
+                if (city != null)
                 {
                     var country = await _countryRepository.GetCountryAsync(city);
-                    if(country != null)
+                    if (country != null)
                     {
                         model.CountryId = country.Id;
                         model.Cities = _countryRepository.GetComboCities(country.Id);
@@ -148,11 +167,12 @@ namespace SuperShop.Controllers
                     }
                 }
             }
+
             model.Cities = _countryRepository.GetComboCities(model.CountryId);
             model.Countries = _countryRepository.GetComboCountries();
-
             return View(model);
         }
+
 
         [HttpPost]
         public async Task<IActionResult> ChangeUser(ChangeUserViewModel model)
@@ -180,7 +200,6 @@ namespace SuperShop.Controllers
                     {
                         ModelState.AddModelError(string.Empty, response.Errors.FirstOrDefault().Description);
                     }
-
                 }
             }
 
@@ -191,6 +210,7 @@ namespace SuperShop.Controllers
         {
             return View();
         }
+
 
         [HttpPost]
         public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model)
@@ -212,11 +232,13 @@ namespace SuperShop.Controllers
                 }
                 else
                 {
-                    this.ModelState.AddModelError(string.Empty, "User not found");
+                    this.ModelState.AddModelError(string.Empty, "User not found.");
                 }
             }
+
             return this.View(model);
         }
+
 
         [HttpPost]
         public async Task<IActionResult> CreateToken([FromBody] LoginViewModel model)
@@ -252,7 +274,7 @@ namespace SuperShop.Controllers
                             expiration = token.ValidTo
                         };
 
-                        return this.Created(string.Empty, results); return this.Created(string.Empty, results);
+                        return this.Created(string.Empty, results);
 
                     }
                 }
@@ -261,15 +283,58 @@ namespace SuperShop.Controllers
             return BadRequest();
         }
 
+        public async Task<IActionResult> ConfirmEmail(string userId, string token)
+        {
+            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(token))
+            {
+                return NotFound();
+            }
+
+            var user = await _userHelper.GetUserByIdAsync(userId);
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            var result = await _userHelper.ConfirmEmailAsync(user, token);
+            if (!result.Succeeded)
+            {
+
+            }
+
+            return View();
+
+        }
+
+
+        public IActionResult RecoverPassword()
+        {
+            return View();
+        }
+
+
+
+        [HttpPost]
+        
+
+        public IActionResult ResetPassword(string token)
+        {
+            return View();
+        }
+
+
+        
+
 
 
         public IActionResult NotAuthorized()
         {
             return View();
         }
+
+
         [HttpPost]
         [Route("Account/GetCitiesAsync")]
-        
         public async Task<JsonResult> GetCitiesAsync(int countryId)
         {
             var country = await _countryRepository.GetCountryWithCitiesAsync(countryId);
